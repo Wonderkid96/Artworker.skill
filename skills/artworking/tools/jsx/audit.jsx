@@ -66,6 +66,14 @@ function code(v) {                       // 4-char enum -> readable string
     } catch (e) { return String(v); }
 }
 
+function locate(it) {
+    var d = { type: "?", folio: "pasteboard", bounds: null };
+    try { d.type = it.constructor.name; } catch (e) {}
+    try { if (it.parentPage) d.folio = String(it.parentPage.name); } catch (e) {}
+    try { var b = it.geometricBounds; d.bounds = [b[1], b[0], b[3], b[2]]; } catch (e) {}
+    return d;
+}
+
 var doc = app.open(File(DOC_PATH), false);
 
 section("document", function () {
@@ -186,19 +194,20 @@ section("typeSizes", function () {
 });
 
 section("strokes", function () {
-    var w = {}, out = [], items = doc.allPageItems;
+    var w = {}, out = [], thin = [], items = doc.allPageItems;
     for (var i = 0; i < items.length; i++) {
         try {
-            var it = items[i];
-            if (it.strokeColor && String(it.strokeColor.name) !== "None" && it.strokeWeight > 0) {
-                var v = Math.round(it.strokeWeight * 1000) / 1000;
-                w[v] = (w[v] || 0) + 1;
-            }
+            var it = items[i], sc = null, sw = 0;
+            try { sc = it.strokeColor; sw = it.strokeWeight; } catch (e) { continue; }
+            if (!sc || String(sc.name) === "None" || !(sw > 0)) continue;
+            var v = Math.round(sw * 1000) / 1000;
+            w[v] = (w[v] || 0) + 1;
+            if (v < 0.25) { var d = locate(it); d.pt = v; thin.push(d); }
         } catch (e) {}
     }
     for (var k in w) if (w.hasOwnProperty(k)) out.push({ pt: Number(k), items: w[k] });
     out.sort(function (a, b) { return a.pt - b.pt; });
-    return out;
+    return { weights: out, belowMinimum: thin };
 });
 
 section("layers", function () {
@@ -211,14 +220,18 @@ section("layers", function () {
 });
 
 section("registrationUse", function () {
-    var n = 0, items = doc.allPageItems;
+    var out = [], items = doc.allPageItems;
     for (var i = 0; i < items.length; i++) {
         try {
-            if (items[i].fillColor && String(items[i].fillColor.name) === "Registration") n++;
-            if (items[i].strokeColor && String(items[i].strokeColor.name) === "Registration") n++;
+            var f = items[i].fillColor && String(items[i].fillColor.name) === "Registration";
+            var s = items[i].strokeColor && String(items[i].strokeColor.name) === "Registration";
+            if (!f && !s) continue;
+            var d = locate(items[i]);
+            d.on = f && s ? "fill+stroke" : (f ? "fill" : "stroke");
+            out.push(d);
         } catch (e) {}
     }
-    return n;
+    return { count: out.length, items: out };
 });
 
 section("textByPage", function () {

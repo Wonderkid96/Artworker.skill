@@ -13,6 +13,22 @@ Ratings: **Strong** (reliable, verifiable) / **Partial** (useful, needs human co
 
 ---
 
+## What is actually automated, and what is not
+
+**Roughly 45 of the 202 checks in `artworking-functions.md` run automatically.** The rest depend on Claude reading the file attentively, which is a judgement call and not a guarantee — the same tool produces a different result depending on how thorough that pass is.
+
+Measured on the first live job: of six BLOCK findings, **the tooling found two** (`[Registration]` in artwork, a hidden spot-finish layer). The other four — a factual contradiction between two pages, a missing space, a subject/verb error — came from reading the copy.
+
+**Automated:** document setup · bleed coverage per edge, spine-aware · safety margins · repeated-element drift · near-miss guide alignment · font embedding and substitution status · links and effective resolution · overset · swatch inventory including stray RGB and unused · `[Registration]` use, located by folio · hidden layers · stroke weights below minimum, located by folio · type sizes · complete copy extraction including grouped frames · typographic characters via regex · barcode and QR decode · URL resolution · page-average ink coverage.
+
+**Not implemented at all:** spelling · grammar · widows and orphans · rags and rivers · overprint and knockout · trapping · peak ink coverage (averages only) · PDF/X conformance · image artefacts, upscaling or watermark detection · colour profile mismatches · brand compliance · folds, panel shortening, gutter loss, die lines · barcode magnification and bar width reduction · transparency flattening · Illustrator · Photoshop.
+
+**The biggest single gap is spelling and grammar**, and it is also the most mechanical to close. A dictionary pass with a print wordlist and a locale check would have caught `betailored` without anyone needing to read attentively — which is the difference between assisting a careful reader and catching what a tired one misses.
+
+Do not describe this as a tool that finds all issues. It does not.
+
+---
+
 ## Environment verified on this machine (2026-08-16)
 
 | Tool | Status | Gives us |

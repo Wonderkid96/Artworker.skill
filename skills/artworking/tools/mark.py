@@ -562,35 +562,50 @@ def add_summary_page(out, job, findings, coverage, counts):
 # --- Acrobat comment layer -------------------------------------------------
 
 
-def build_comments(src_path: Path, findings) -> fitz.Document:
+def build_comments(src_path: Path, findings, job=None) -> fitz.Document:
+    """Original geometry, native annotations.
+
+    Located findings are annotated where they are. Document-level findings used
+    to be stacked as loose icons on page 1, which made the comment list look
+    like everything was wrong with the cover — they are now gathered into a
+    single note instead.
+    """
     doc = fitz.open(src_path)
-    stacked = 0
+    labels = (job or {}).get("page_labels", {})
+
     for f in findings:
-        pno = (f.page or 1) - 1
-        if pno >= doc.page_count:
+        if not f.located:
+            continue
+        pno = f.page - 1
+        if pno < 0 or pno >= doc.page_count:
             continue
         page = doc[pno]
         c = sev_colour(f.severity)
         body = f"{f.title}\n\n[{f.severity}] {f.domain}\n\n{f.detail}\n\nACTION: {f.action}"
+        for j, r in enumerate(f.rects):
+            a = page.add_rect_annot(fitz.Rect(*r))
+            a.set_colors(stroke=c)
+            a.set_border(width=1.2)
+            suffix = f"  ({j + 1} of {len(f.rects)})" if len(f.rects) > 1 else ""
+            a.set_info(title=f"{f.id:02d} · {f.severity} · {f.title}{suffix}", content=body)
+            a.update()
 
-        if f.located:
-            # One annotation per instance, so Acrobat's comment list counts
-            # them the same way the markup sheets do.
-            for j, r in enumerate(f.rects):
-                a = page.add_rect_annot(fitz.Rect(*r))
-                a.set_colors(stroke=c)
-                a.set_border(width=1.2)
-                suffix = f"  ({j + 1} of {len(f.rects)})" if len(f.rects) > 1 else ""
-                a.set_info(title=f"{f.id:02d} · {f.severity} · {f.title}{suffix}", content=body)
-                a.update()
-            continue
-        else:
-            annot = page.add_text_annot(fitz.Point(16, 16 + 20 * stacked), body, icon="Comment")
-            annot.set_colors(stroke=c)
-            stacked += 1
-
-        annot.set_info(title=f"{f.id:02d} · {f.severity} · {f.title}", content=body)
-        annot.update()
+    doc_level = [f for f in findings if not f.located]
+    if doc_level:
+        lines = []
+        for f in doc_level:
+            lines.append(f"{f.id:02d}  [{f.severity}] {f.title}\n     {f.detail}\n     ACTION: {f.action}\n")
+        counts = tally(doc_level)
+        head = "  ·  ".join(f"{s} {counts[s]}" for s in SEVERITIES if counts[s])
+        note = doc[0].add_text_annot(
+            fitz.Point(18, 18),
+            "These apply to the document as a whole, not to this page.\n\n" + "\n".join(lines),
+            icon="Note")
+        note.set_colors(stroke=sev_colour(doc_level[0].severity))
+        note.set_info(title=f"DOCUMENT-LEVEL · {len(doc_level)} findings · {head}",
+                      content="These apply to the document as a whole, not to this page.\n\n"
+                              + "\n".join(lines))
+        note.update()
     return doc
 
 
@@ -621,7 +636,7 @@ def main() -> int:
         marked.save(marked_path, garbage=3, deflate=True)
         marked.close()
 
-    comments = build_comments(args.artwork, findings)
+    comments = build_comments(args.artwork, findings, job)
     comments_path = outdir / f"{stem}_COMMENTS.pdf"
     comments.save(comments_path, garbage=3, deflate=True)
     comments.close()
