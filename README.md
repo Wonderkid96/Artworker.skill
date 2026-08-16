@@ -8,16 +8,55 @@ Point Claude at a PDF or InDesign file and it works through a 13-domain artworki
 
 ## Install
 
-In Claude Code:
+**1. Add the plugin** — in Claude Code:
 
 ```
 /plugin marketplace add Wonderkid96/Artworker.skill
 /plugin install artworking
 ```
 
-Then just ask:
+**2. Restart Claude Code.** Plugins load at session start, so the skill will not appear until you do.
 
-> check this artwork before it goes to print — `~/Desktop/brochure.pdf`
+**3. Check the environment.** This is the step people skip, and it matters: a missing dependency does not fail loudly, it makes whole checks silently unavailable while the report still looks complete.
+
+```bash
+python3 ~/.claude/plugins/cache/artworking/artworking/*/skills/artworking/tools/doctor.py
+```
+
+It prints what is present, what is missing, and the exact commands to fix it — using the path of the Python you actually ran it with, which avoids the usual "installed it, still not found" trap.
+
+Expect something like:
+
+```
+  [  ok  ] PyMuPDF                reads and marks up PDFs
+  [ miss ] PyObjC / spellcheck    spelling and grammar will NOT run
+  [  ok  ] InDesign               Adobe InDesign 2026
+
+  Recommended:
+    /opt/homebrew/bin/python3 -m pip install pyobjc-framework-Cocoa zxing-cpp
+```
+
+**4. Install what it asks for.**
+
+| | Needed for | Install |
+|---|---|---|
+| **PyMuPDF** | everything — required | `pip install pymupdf` |
+| **pyobjc-framework-Cocoa** | spelling, en_GB locale, grammar | `pip install pyobjc-framework-Cocoa` |
+| **zxing-cpp** | barcode and QR scan-testing | `pip install zxing-cpp` |
+| **ghostscript** | total ink coverage | `brew install ghostscript` |
+| **poppler**, **exiftool** | text extraction, PDF metadata | `brew install poppler exiftool` |
+| **verapdf** | PDF/X conformance | `brew install verapdf` |
+| **Adobe InDesign** | `.indd` source checks — overset, swatches, links | macOS only; PDFs audit without it |
+
+Nothing except PyMuPDF is mandatory. Anything missing is reported in the audit under "what was not checked", never silently skipped.
+
+**5. Use it.**
+
+```
+/artwork ~/Work/brochure.pdf
+```
+
+Or just ask — "check this artwork before it goes to print", "is this print ready", "mark up the errors".
 
 ## What it does
 
