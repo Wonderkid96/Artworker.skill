@@ -231,7 +231,7 @@ def entry_h(f: Finding, w: float) -> float:
     h += block_h(f.title, w, FONT_B, 8.8) + 4
     h += block_h(f.detail, w, FONT, 7.5) + 4
     if f.action:
-        h += block_h(("AUTO-FIX  " if f.fixable else "") + f.action, w - 8, FONT, 7.3) + 9
+        h += block_h(("MECHANICAL  " if f.fixable else "") + f.action, w - 8, FONT, 7.3) + 9
     return h + 15
 
 
@@ -250,7 +250,7 @@ def draw_entry(page, x, y, w, f: Finding) -> float:
     y += put(page, x, y, w, f.detail, 7.5, INK, FONT) + 4
 
     if f.action:
-        txt = ("AUTO-FIX  " if f.fixable else "") + f.action
+        txt = ("MECHANICAL  " if f.fixable else "") + f.action
         h = block_h(txt, w - 8, FONT, 7.3)
         page.draw_line(fitz.Point(x, y + 1), fitz.Point(x, y + h + 2),
                        color=sev_colour(f.severity), width=1.6)

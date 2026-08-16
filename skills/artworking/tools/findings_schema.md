@@ -79,4 +79,8 @@ Coordinates are in **source page points**, top-left origin, matching PyMuPDF's p
 - A finding with no `rects` is document-level and appears in the column without a mark.
 - `checks_skipped` and `unverified` are **not optional**. A report that omits them overstates its own coverage.
 - Give `checks_skipped` reasons that name the cause, not just the gap: "proof copy is RGB — no separations to measure" reads correctly; "no separations" reads like a fault.
-- `fixable: true` means EXECUTE mode can apply it without design judgement. Everything else is proposed, not applied.
+- `fixable: true` means the correction needs **no design judgement** — a find/change, a property change, a swatch merge. It prints `MECHANICAL` on the markup so a designer can triage: these can be worked through quickly, the rest need thought.
+
+  It does **not** mean anything was fixed, and it does not mean one click will fix it. No fixer exists yet; see `docs/specs/execute-mode-design.md`. Do not label it `AUTO-FIX` — on a report handed to a designer that reads as work already done.
+
+  Do not set it on anything that moves geometry (extending a bleed, repositioning). Those trip the "no frame moved" gate in the EXECUTE design, so flagging them as mechanical is inconsistent with how they would actually be applied.
