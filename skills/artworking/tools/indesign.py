@@ -283,18 +283,40 @@ class InDesignSession:
             out_file.unlink(missing_ok=True)
 
 
+def find_assets(names: list[str], folder: Path) -> dict[str, list[str]]:
+    """Match missing link names against files in a folder tree.
+
+    Filename matching alone is how the wrong version of an image reaches print,
+    so every candidate is returned and anything ambiguous is left for a human.
+    """
+    if not folder.is_dir():
+        raise InDesignError(f"not a folder: {folder}")
+    wanted = {n.lower(): n for n in names}
+    out: dict[str, list[str]] = {n: [] for n in names}
+    for f in folder.rglob("*"):
+        if not f.is_file():
+            continue
+        key = f.name.lower()
+        if key in wanted:
+            out[wanted[key]].append(str(f.resolve()))
+    return out
+
+
 # --- CLI -------------------------------------------------------------------
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Safe InDesign access.")
-    ap.add_argument("command", nargs="?", choices=["audit", "package"], help="what to run")
+    ap.add_argument("command", nargs="?", choices=["audit", "package", "relink", "fonts", "geometry"], help="what to run")
     ap.add_argument("document", nargs="?", help="path to .indd")
     ap.add_argument("--check", action="store_true", help="report whether InDesign is available")
     ap.add_argument("-o", "--out", help="write JSON here instead of stdout")
     ap.add_argument("--to", help="package: destination folder (default: alongside the document)")
     ap.add_argument("--pdf", action="store_true", help="package: include a print PDF")
     ap.add_argument("--hidden-layers", action="store_true", help="package: include hidden layers")
+    ap.add_argument("--from", dest="source", help="relink/fonts: folder to search for assets")
+    ap.add_argument("--apply", action="store_true",
+                    help="relink/fonts: actually make the change (default is a dry run)")
     args = ap.parse_args()
 
     if args.check:
@@ -317,7 +339,41 @@ def main() -> int:
         print(f"working on a copy: {s.copy.name}", file=sys.stderr)
         if args.command == "audit":
             data = s.run_jsx("audit.jsx")
-        else:
+            data["geometry"] = s.run_jsx("geometry.jsx")
+
+        elif args.command == "geometry":
+            data = s.run_jsx("geometry.jsx")
+
+        elif args.command == "relink":
+            if not args.source:
+                raise InDesignError("relink needs --from <folder> to search for the images")
+            missing = [l["name"] for l in s.run_jsx("audit.jsx")["links"]
+                       if l.get("status") == "lmis"]
+            cands = find_assets(missing, Path(args.source).expanduser())
+            data = s.run_jsx("relink.jsx", {"candidates": cands, "apply": args.apply})
+            data["missingBefore"] = len(missing)
+            if args.apply and data.get("saved"):
+                s.keep()
+                data["result"] = str(s.copy)
+
+        elif args.command == "fonts":
+            import fonts as fontfinder
+            audit = s.run_jsx("audit.jsx")
+            # fsSu = substituted, fsNa = not available
+            missing = [f["name"] for f in audit["fonts"] if f.get("status") in ("fsSu", "fsNa")]
+            search = [Path(args.source).expanduser()] if args.source else None
+            data = fontfinder.resolve(missing, search)
+            data["missing"] = missing
+            if args.apply and data["found"]:
+                data["collected"] = fontfinder.collect(data["found"], s.original)
+                data["note"] = ("Copied into 'Document fonts' beside the ORIGINAL. InDesign "
+                                "activates that folder automatically — nothing is installed "
+                                "system-wide, and the document itself is untouched.")
+            if data["notFound"]:
+                data["warning"] = ("Not found on this machine. If these come from Adobe Fonts "
+                                   "they cannot be collected at all — activate them in Creative "
+                                   "Cloud instead.")
+        elif args.command == "package":
             dest = Path(args.to).expanduser().resolve() if args.to else \
                 s.original.parent / f"{s.original.stem}_PACKAGE"
             data = s.run_jsx("package.jsx", {
