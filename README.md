@@ -19,8 +19,14 @@ Point Claude at a PDF or InDesign file and it works through a 13-domain artworki
 
 **3. Check the environment.** This is the step people skip, and it matters: a missing dependency does not fail loudly, it makes whole checks silently unavailable while the report still looks complete.
 
+Easiest — just ask Claude:
+
+> run the artworking environment check
+
+Or from a terminal (picks the newest installed version):
+
 ```bash
-python3 ~/.claude/plugins/cache/artworking/artworking/*/skills/artworking/tools/doctor.py
+python3 "$(ls -d ~/.claude/plugins/cache/artworking/artworking/*/ | sort -V | tail -1)skills/artworking/tools/doctor.py"
 ```
 
 It prints what is present, what is missing, and the exact commands to fix it — using the path of the Python you actually ran it with, which avoids the usual "installed it, still not found" trap.
