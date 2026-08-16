@@ -19,11 +19,13 @@ Ratings: **Strong** (reliable, verifiable) / **Partial** (useful, needs human co
 
 Measured on the first live job: of six BLOCK findings, **the tooling found two** (`[Registration]` in artwork, a hidden spot-finish layer). The other four — a factual contradiction between two pages, a missing space, a subject/verb error — came from reading the copy.
 
-**Automated:** document setup · bleed coverage per edge, spine-aware · safety margins · repeated-element drift · near-miss guide alignment · font embedding and substitution status · links and effective resolution · overset · swatch inventory including stray RGB and unused · `[Registration]` use, located by folio · hidden layers · stroke weights below minimum, located by folio · type sizes · complete copy extraction including grouped frames · typographic characters via regex · barcode and QR decode · URL resolution · page-average ink coverage.
+**Automated:** spelling and en_GB/en_US locale consistency (macOS dictionary) · targeted grammar rules · document setup · bleed coverage per edge, spine-aware · safety margins · repeated-element drift · near-miss guide alignment · font embedding and substitution status · links and effective resolution · overset · swatch inventory including stray RGB and unused · `[Registration]` use, located by folio · hidden layers · stroke weights below minimum, located by folio · type sizes · complete copy extraction including grouped frames · typographic characters via regex · barcode and QR decode · URL resolution · page-average ink coverage.
 
-**Not implemented at all:** spelling · grammar · widows and orphans · rags and rivers · overprint and knockout · trapping · peak ink coverage (averages only) · PDF/X conformance · image artefacts, upscaling or watermark detection · colour profile mismatches · brand compliance · folds, panel shortening, gutter loss, die lines · barcode magnification and bar width reduction · transparency flattening · Illustrator · Photoshop.
+**Not implemented at all:** widows and orphans · rags and rivers · overprint and knockout · trapping · peak ink coverage (averages only) · PDF/X conformance · image artefacts, upscaling or watermark detection · colour profile mismatches · brand compliance · folds, panel shortening, gutter loss, die lines · barcode magnification and bar width reduction · transparency flattening · Illustrator · Photoshop.
 
-**The biggest single gap is spelling and grammar**, and it is also the most mechanical to close. A dictionary pass with a print wordlist and a locale check would have caught `betailored` without anyone needing to read attentively — which is the difference between assisting a careful reader and catching what a tired one misses.
+Spelling is now implemented and it earned its place immediately: on the first live job it found `withinour` — a missing space that careful reading had missed twice. It also demonstrated why the source matters. Run against an InDesign extraction it reported three run-together words; cross-checked against the PDF, **two were artefacts of joining frames** and only one was real. Always spellcheck the composed PDF.
+
+The biggest remaining gaps are widows and orphans, overprint, and peak ink coverage.
 
 Do not describe this as a tool that finds all issues. It does not.
 

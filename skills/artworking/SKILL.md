@@ -35,9 +35,22 @@ A proof is not a defective print file. It is a different file for a different jo
 
 1. **Identify the file type** (above) and get the spec — trim size, bleed, colour, stock, process, binding. Ask for the printer's own spec sheet; every printer differs. Without a spec, "correct" is undefined, so state the defaults you are assuming.
 2. **Work the checklist** in `reference/artworking-functions.md`. 13 domains. Domains 9 and 10 (print engineering, output) apply only to a file actually going to press.
-3. **Verify visually.** Render pages and look at them. Text extraction gives you frame order, not visual order — do not conclude anything about layout, caption pairing or reading order without seeing the page.
-4. **Write `findings.json`** per `tools/findings_schema.md`.
-5. **Render the markup:** `python3 tools/mark.py <artwork.pdf> <findings.json> -o <outdir>`
+3. **Spellcheck the copy.** Not optional — it catches what attentive reading misses.
+   ```bash
+   python3 tools/spelling.py check <pages.json> --locale en_GB --words brand-terms.txt
+   ```
+   Run it on text extracted from a **PDF**, not from an InDesign audit: joining InDesign frames
+   reconstructs word adjacencies that do not exist in the composed result, which invents
+   run-together words. Verified on a live job — two of three were artefacts, one was real.
+
+   Results are grouped by unique word with counts and folios, so a client's name appearing forty
+   times is one line to dismiss. Keep the genuine ones and put the rest in a project wordlist.
+   Needs `pip install pyobjc-framework-Cocoa`; if it is missing, say spelling was not checked
+   rather than skipping it silently.
+
+4. **Verify visually.** Render pages and look at them. Text extraction gives you frame order, not visual order — do not conclude anything about layout, caption pairing or reading order without seeing the page.
+5. **Write `findings.json`** per `tools/findings_schema.md`.
+6. **Render the markup:** `python3 tools/mark.py <artwork.pdf> <findings.json> -o <outdir>`
 
 ## Outputs
 
@@ -84,6 +97,9 @@ A box the reader cannot identify is only half a markup. A designer on a live job
 |---|---|
 | `tools/mark.py` | Renders `findings.json` into the marked PDF and comment layer |
 | `tools/locate.py` | Character-exact text location. Rebuilds a page from per-character boxes so regex finds what `search_for()` cannot |
+| `tools/spelling.py` | Spelling, en_GB/en_US locale consistency and targeted grammar rules, via the macOS dictionary |
+| `tools/indesign.py` | Safe InDesign access: audit, geometry, package, relink, fonts |
+| `tools/fonts.py` | Finds font files by the family+style names InDesign reports |
 | `tools/findings_schema.md` | The contract. Read before writing a findings file. |
 
 Requires PyMuPDF. Optional: `ghostscript` (ink coverage), `zxing-cpp` (barcode/QR decode), `verapdf` (PDF/X conformance).
