@@ -95,22 +95,39 @@ Requires PyMuPDF. Optional: `ghostscript` (ink coverage), `zxing-cpp` (barcode/Q
 - `reference/file-supply-spec.md` — what to ask a client for, with a forwardable email
 - `reference/capability-matrix.md` — what can and cannot be checked, and by what means
 
-## Reading InDesign directly (macOS)
+## Reading InDesign (macOS)
 
-InDesign can be driven over AppleScript for things no PDF can answer — overset text, link status, swatch names as authored, font substitution status.
+InDesign answers things no PDF can: overset text, link status and true resolution, swatch names as authored, and whether fonts are **substituted** rather than present.
 
 ```bash
-osascript -e 'tell application "Adobe InDesign 2026" to do script "
-  var f=File(\"/path/to/script.jsx\"); f.open(\"r\"); var s=f.read(); f.close(); eval(s);
-" language javascript'
+python3 tools/indesign.py --check              # is InDesign installed
+python3 tools/indesign.py audit <file.indd>    # full read, JSON to stdout
 ```
 
-Bootstrapping from a `.jsx` file avoids quoting problems. Always:
+**Never open the original by any other route.** InDesign writes to a document the moment it opens it — link records, version migration, a `.idlk` lock beside it. So "just reading" is not read-only.
 
-- `app.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT` first, or missing-link and missing-font dialogs will hang the run
-- `app.open(File(path), false)` to open without a window
-- `doc.close(SaveOptions.NO)` always
+`tools/indesign.py` handles that. Every session:
 
-**Beware:** `page.textFrames` misses frames nested inside groups. Use `allPageItems` or extract from a PDF, or your copy check silently skips content.
+1. Refuses to run if the document is open in InDesign or a `.idlk` lock exists
+2. Hashes the original, then sets it read-only for the duration
+3. Copies it **beside itself** (so relative links and a sibling `Document Fonts` folder still resolve)
+4. Opens only the copy, with `userInteractionLevel = NEVER_INTERACT` so a missing-link dialog cannot hang the run
+5. Deletes the copy afterwards, unless `keep()` was called
+6. **Re-hashes the original and raises if it changed by one byte**
 
-**Beware:** if fonts are missing, InDesign substitutes them and every composition result — rag, widows, line breaks, overset — is measured on the wrong metrics. Report those as unverified, not clean.
+Step 6 is the guarantee. It is an assertion that fails the run, not a promise.
+
+### Reading the results
+
+- `fonts[].status` — `fsIn` installed, **`fsSu` substituted**. If anything is substituted, every composition result (rag, widows, line breaks, and the overset count) was measured on the wrong metrics. Report those as unverified, not clean.
+- `links[].status` — `lmis` missing. Missing links mean image quality and colour cannot be assessed.
+- `overset.count` — the single most valuable thing here, and impossible to get from a PDF.
+- `layers[].visible` — a hidden layer does not output. Watch for hidden special-finish layers (spot UV, foil) that the job is supposed to carry.
+
+### Writing your own JSX
+
+Put it in `tools/jsx/`. The bridge substitutes `__DOC_PATH__`, `__OUT_PATH__` and `__PARAMS__`, and expects JSON written to `__OUT_PATH__`.
+
+ExtendScript is ES3 — no `JSON`, no modern syntax, and an exception inside a loop silently ends the loop. Wrap each section so a failure records itself and the rest still runs. `audit.jsx` shows the pattern.
+
+**Use `allPageItems`, never `page.textFrames`** — the latter misses frames nested inside groups and will silently drop copy from your audit.
