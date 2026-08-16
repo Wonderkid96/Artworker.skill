@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+.DS_Store
+out/
+*_MARKED.pdf
+*_COMMENTS.pdf
+*_ARTWORKED_*.indd

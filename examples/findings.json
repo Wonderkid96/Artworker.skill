@@ -1,0 +1,285 @@
+{
+  "job": {
+    "client": "Acme Stores",
+    "job": "Spring Sale",
+    "item": "A5 Flyer, 2pp",
+    "file": "sample_flyer.pdf",
+    "spec": "A5 148x210mm, 4/4, 3mm bleed, 5mm safety margin, 300ppi, PDF/X-1a:2001, FOGRA39, litho on 300gsm silk",
+    "printer": "not supplied",
+    "audited": "2026-08-16",
+    "context": "File supplied is PRINT ARTWORK, so it is graded against print-readiness in full. This is a synthetic example with eleven deliberately seeded faults.",
+    "page_labels": {
+      "1": "1",
+      "2": "2"
+    }
+  },
+  "checks_run": [
+    "structure",
+    "boxes",
+    "fonts",
+    "colour_spaces",
+    "text_extraction",
+    "typography",
+    "factual",
+    "geometry",
+    "minimum_sizes"
+  ],
+  "checks_skipped": [
+    {
+      "check": "total_ink_coverage",
+      "reason": "Ghostscript not installed"
+    },
+    {
+      "check": "pdfx_conformance",
+      "reason": "veraPDF not installed"
+    },
+    {
+      "check": "barcode_decode",
+      "reason": "no barcode present in artwork"
+    },
+    {
+      "check": "image_resolution",
+      "reason": "no raster images placed in this document"
+    }
+  ],
+  "unverified": [
+    "Overset text — cannot be detected in a PDF. Check the InDesign source.",
+    "Brand compliance — no guidelines supplied for Acme Stores.",
+    "Copy accuracy against an approved deck — no copy deck supplied, so only internal consistency was checked.",
+    "Regulatory and promotional terms — flagged for a human specialist, not assessed.",
+    "Colour appearance on 300gsm silk — cannot be assessed without a proof."
+  ],
+  "findings": [
+    {
+      "id": 1,
+      "severity": "BLOCK",
+      "domain": "Document construction",
+      "page": 1,
+      "title": "No bleed anywhere in the document",
+      "detail": "MediaBox is 419.53 x 595.28pt (148 x 210mm) with no TrimBox or BleedBox set. The black band on page 1 is built to the trim edge, so any cutting tolerance will show a white sliver.",
+      "action": "Set a 3mm bleed and extend the black band and any other edge-bleeding element into it. Re-export with crop marks and 3mm bleed.",
+      "fixable": false,
+      "rects": [
+        [
+          0,
+          0,
+          419.53,
+          595.28
+        ]
+      ],
+      "short": "no bleed"
+    },
+    {
+      "id": 2,
+      "severity": "BLOCK",
+      "domain": "Colour",
+      "page": 0,
+      "title": "Entire document is DeviceRGB in a CMYK job",
+      "detail": "Every fill and stroke resolves to DeviceRGB. No output intent is embedded. Spec calls for CMYK with FOGRA39.",
+      "action": "Set the document to CMYK, convert or rebuild all colours, and export PDF/X-1a:2001 with FOGRA39 as the output intent.",
+      "fixable": false,
+      "short": "RGB document"
+    },
+    {
+      "id": 3,
+      "severity": "BLOCK",
+      "domain": "Copy — factual",
+      "page": 1,
+      "title": "Day of week does not match the date",
+      "detail": "Reads 'Thursday 4 April 2026'. 4 April 2026 is a Saturday.",
+      "action": "Confirm the intended date with the client, then correct either the day or the date. Check the same date wherever else it appears.",
+      "fixable": false,
+      "rects": [
+        [
+          37,
+          354,
+          261,
+          374
+        ]
+      ],
+      "short": "day/date mismatch"
+    },
+    {
+      "id": 4,
+      "severity": "BLOCK",
+      "domain": "Copy — factual",
+      "page": 1,
+      "title": "Bundle price does not add up",
+      "detail": "Jacket £45 + Shirt £30 + Belt £20 = £95. Stated bundle price is £90. Either the arithmetic is wrong or the £5 saving is undeclared.",
+      "action": "Confirm the intended bundle price. If £90 is correct, state the saving explicitly so the offer is not misleading.",
+      "fixable": false,
+      "rects": [
+        [
+          37,
+          481,
+          142,
+          498
+        ]
+      ],
+      "short": "total wrong"
+    },
+    {
+      "id": 5,
+      "severity": "BLOCK",
+      "domain": "Copy — consistency",
+      "page": 1,
+      "title": "Phone number differs between pages",
+      "detail": "Page 1 reads 01522 511 900. Page 2 reads 01522 511 090. Both are valid UK Lincoln formats, so neither can be ruled out by format alone.",
+      "action": "Verify the correct number with the client and dial it before print. Correct both pages to match.",
+      "fixable": false,
+      "rects": [
+        [
+          37,
+          528,
+          174,
+          543
+        ]
+      ],
+      "short": "phone mismatch"
+    },
+    {
+      "id": 6,
+      "severity": "RISK",
+      "domain": "Typography",
+      "page": 1,
+      "title": "Reversed body copy set at 5pt",
+      "detail": "White text on a solid black ground at 5pt. Below the 6pt minimum for reversed type on coated litho, and the light weight will fill in.",
+      "action": "Increase to 7pt minimum and step up one weight, or move the copy off the black ground.",
+      "fixable": false,
+      "rects": [
+        [
+          37,
+          171,
+          161,
+          192
+        ]
+      ],
+      "short": "5pt reversed"
+    },
+    {
+      "id": 7,
+      "severity": "RISK",
+      "domain": "Print engineering",
+      "page": 1,
+      "title": "Hairline rule at 0.15pt",
+      "detail": "Rule measures 0.15pt. Minimum reliable positive line on coated litho is 0.25pt. It may print broken or disappear.",
+      "action": "Increase to 0.25pt minimum, 0.5pt if the stock turns out to be uncoated.",
+      "fixable": true,
+      "rects": [
+        [
+          37,
+          512,
+          380,
+          520
+        ]
+      ],
+      "short": "hairline"
+    },
+    {
+      "id": 8,
+      "severity": "CRAFT",
+      "domain": "Typography",
+      "page": 1,
+      "title": "Hyphen used for a date range",
+      "detail": "Reads '3rd-14th of April'. A range takes an en dash, not a hyphen.",
+      "action": "Replace with an en dash. Check every other range in the document.",
+      "fixable": true,
+      "rects": [
+        [
+          37,
+          181,
+          158,
+          192
+        ]
+      ],
+      "short": "hyphen for range"
+    },
+    {
+      "id": 9,
+      "severity": "CRAFT",
+      "domain": "Typography",
+      "page": 1,
+      "title": "Double space after a full stop",
+      "detail": "One instance, after 'sale.' — a typewriter habit that leaves a visible hole in the line.",
+      "action": "Find/change double space to single space across the document.",
+      "fixable": true,
+      "rects": [
+        [
+          172,
+          259,
+          191,
+          277
+        ]
+      ],
+      "short": "double space"
+    },
+    {
+      "id": 10,
+      "severity": "CRAFT",
+      "domain": "Typography",
+      "page": 1,
+      "title": "Straight apostrophes, 3 instances",
+      "detail": "It's, we've and we'll all use a straight prime rather than a typographer's apostrophe.",
+      "action": "Enable typographer's quotes and find/change all instances.",
+      "fixable": true,
+      "rects": [
+        [
+          37,
+          259,
+          266,
+          294
+        ]
+      ],
+      "short": "straight apostrophe"
+    },
+    {
+      "id": 11,
+      "severity": "BLOCK",
+      "domain": "Copy — consistency",
+      "page": 2,
+      "title": "Phone number differs from page 1",
+      "detail": "Reads 01522 511 090. Page 1 reads 01522 511 900. See finding 05.",
+      "action": "Correct to match once the client confirms the right number.",
+      "fixable": false,
+      "rects": [
+        [
+          37,
+          234,
+          122,
+          255
+        ]
+      ],
+      "short": "phone mismatch"
+    },
+    {
+      "id": 12,
+      "severity": "RISK",
+      "domain": "Layout",
+      "page": 2,
+      "title": "Terms copy inside the safety margin",
+      "detail": "Text box sits 4mm from trim on left, right and bottom. Spec requires a 5mm safety margin. On a guillotine tolerance of ±1mm this could be trimmed into.",
+      "action": "Pull in to 5mm minimum from trim on all edges.",
+      "fixable": true,
+      "rects": [
+        [
+          9,
+          566,
+          205,
+          580
+        ]
+      ],
+      "short": "inside safety margin"
+    },
+    {
+      "id": 13,
+      "severity": "NOTE",
+      "domain": "Output",
+      "page": 0,
+      "title": "Not a PDF/X file",
+      "detail": "PDF 1.7, no output intent, no PDF/X identification. Spec asks for PDF/X-1a:2001.",
+      "action": "Export from the source using the PDF/X-1a:2001 preset once the colour and bleed findings are resolved.",
+      "fixable": false,
+      "short": "not PDF/X"
+    }
+  ]
+}

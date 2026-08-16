@@ -1,0 +1,11 @@
+{
+  "name": "artworking",
+  "owner": { "name": "Wonderkid96" },
+  "plugins": [
+    {
+      "name": "artworking",
+      "source": "./",
+      "description": "Print artwork auditing — preflight a PDF or InDesign file and produce a marked-up PDF a designer can act on."
+    }
+  ]
+}

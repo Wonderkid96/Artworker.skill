@@ -1,0 +1,10 @@
+{
+  "name": "artworking",
+  "version": "0.1.0",
+  "description": "Print artwork auditing. Checks a PDF or InDesign file for bleed, colour, resolution, typography and copy errors, then renders a marked-up PDF with every fault boxed and named.",
+  "author": { "name": "Wonderkid96" },
+  "repository": "https://github.com/Wonderkid96/Artworker.skill",
+  "license": "MIT",
+  "keywords": ["print", "artwork", "preflight", "prepress", "indesign", "pdf", "proofreading", "design"],
+  "skills": "./skills/"
+}
