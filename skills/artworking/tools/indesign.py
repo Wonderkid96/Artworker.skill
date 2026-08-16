@@ -25,11 +25,13 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import atexit
 import hashlib
 import json
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -41,6 +43,29 @@ JSX_DIR = Path(__file__).parent / "jsx"
 
 # Newest first. InDesign's AppleScript name includes the year.
 KNOWN_APPS = [f"Adobe InDesign {y}" for y in range(2030, 2018, -1)] + ["Adobe InDesign"]
+
+
+# Restored by atexit and by SIGINT/SIGTERM. Without this, a killed process
+# leaves someone's master document chmod'd read-only, which is alarming and
+# looks exactly like corruption.
+_PENDING_RESTORE: dict = {}
+
+
+def _emergency_restore(*_args):
+    for path, mode in list(_PENDING_RESTORE.items()):
+        try:
+            os.chmod(path, mode)
+        except OSError:
+            pass
+        _PENDING_RESTORE.pop(path, None)
+
+
+atexit.register(_emergency_restore)
+for _sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    try:
+        signal.signal(_sig, lambda s, f: (_emergency_restore(), sys.exit(130)))
+    except (ValueError, OSError):
+        pass
 
 
 class InDesignError(RuntimeError):
@@ -100,7 +125,9 @@ class InDesignSession:
         self.app = app_name or find_indesign()
         self.timeout = timeout
         self.copy: Path | None = None
+        self.warnings: list[str] = []
         self._keep = False
+        self._ran_script = False
         self._orig_mode: int | None = None
         self._hash_before: str | None = None
 
@@ -111,6 +138,25 @@ class InDesignSession:
             raise InDesignError(f"no such file: {self.original}")
         if self.original.suffix.lower() not in (".indd", ".indt"):
             raise InDesignError(f"not an InDesign document: {self.original.name}")
+
+        size = self.original.stat().st_size
+        free = shutil.disk_usage(self.original.parent).free
+        if free < size * 2.5:
+            raise InDesignError(
+                f"not enough free space to copy safely: need ~{size * 2.5 / 1e9:.1f}GB, "
+                f"have {free / 1e9:.1f}GB on {self.original.parent}")
+
+        # The copy has to sit beside the original so relative links resolve —
+        # but in a synced folder it will upload before it is deleted, churning
+        # version history and confusing anyone else in the folder.
+        parts = {p.lower() for p in self.original.parts}
+        synced = parts & {"dropbox", "egnyte", "onedrive", "google drive",
+                          "googledrive", "box sync", "icloud drive", "cloudstorage"}
+        if synced:
+            self.warnings.append(
+                f"{self.original.parent} looks like a synced folder ({', '.join(sorted(synced))}). "
+                "A temporary copy will appear there and then be deleted, which may sync to "
+                "colleagues and add version history. Consider copying the file somewhere local first.")
 
         lock = self.original.with_suffix(".idlk")
         if lock.exists():
@@ -149,11 +195,16 @@ class InDesignSession:
 
         # Belt and braces: even a bug in the JSX cannot write to the original.
         self._orig_mode = stat.S_IMODE(self.original.stat().st_mode)
+        _PENDING_RESTORE[str(self.original)] = self._orig_mode
         os.chmod(self.original, self._orig_mode & ~0o222)
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
+        if self._ran_script:
+            self._restore_interaction()
+
         if self._orig_mode is not None:
+            _PENDING_RESTORE.pop(str(self.original), None)
             try:
                 os.chmod(self.original, self._orig_mode)
             except OSError:
@@ -177,6 +228,17 @@ class InDesignSession:
         return self.copy
 
     # -- execution --
+
+    def _restore_interaction(self) -> None:
+        """Put the app's dialog setting back. NEVER_INTERACT is global and
+        sticky — leaving it set would silently suppress prompts in whatever
+        else the user has open."""
+        try:
+            self._osascript(
+                "app.scriptPreferences.userInteractionLevel = "
+                "UserInteractionLevels.INTERACT_WITH_ALL; 'ok';", timeout=60)
+        except Exception:
+            pass
 
     def _osascript(self, js: str, timeout: int | None = None) -> str:
         escaped = js.replace("\\", "\\\\").replace('"', '\\"')
@@ -211,6 +273,7 @@ class InDesignSession:
             # inline through osascript is a quoting minefield.
             boot = (f'var f=File("{tmp}"); f.open("r"); f.encoding="UTF-8"; '
                     f'var s=f.read(); f.close(); eval(s);')
+            self._ran_script = True
             self._osascript(boot)
             if not out_file.exists():
                 raise InDesignError(f"{path.name} produced no output")
@@ -225,10 +288,13 @@ class InDesignSession:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Safe InDesign access.")
-    ap.add_argument("command", nargs="?", choices=["audit"], help="what to run")
+    ap.add_argument("command", nargs="?", choices=["audit", "package"], help="what to run")
     ap.add_argument("document", nargs="?", help="path to .indd")
     ap.add_argument("--check", action="store_true", help="report whether InDesign is available")
     ap.add_argument("-o", "--out", help="write JSON here instead of stdout")
+    ap.add_argument("--to", help="package: destination folder (default: alongside the document)")
+    ap.add_argument("--pdf", action="store_true", help="package: include a print PDF")
+    ap.add_argument("--hidden-layers", action="store_true", help="package: include hidden layers")
     args = ap.parse_args()
 
     if args.check:
@@ -246,8 +312,27 @@ def main() -> int:
 
     t0 = time.time()
     with InDesignSession(args.document) as s:
+        for w in s.warnings:
+            print(f"WARNING: {w}", file=sys.stderr)
         print(f"working on a copy: {s.copy.name}", file=sys.stderr)
-        data = s.run_jsx("audit.jsx")
+        if args.command == "audit":
+            data = s.run_jsx("audit.jsx")
+        else:
+            dest = Path(args.to).expanduser().resolve() if args.to else \
+                s.original.parent / f"{s.original.stem}_PACKAGE"
+            data = s.run_jsx("package.jsx", {
+                "outFolder": str(dest),
+                "includeIdml": True,
+                "includePdf": args.pdf,
+                "hiddenLayers": args.hidden_layers,
+            })
+            # The packaged .indd carries the working copy's name. Put it back.
+            if data.get("ok"):
+                # .indd, .indt and .idml all carry the copy's name
+                for f in dest.glob(f"{s.copy.stem}.*"):
+                    f.rename(f.with_name(f"{s.original.stem}{f.suffix}"))
+            for w in data.get("warnings", []):
+                print(f"WARNING: {w}", file=sys.stderr)
 
     data["_meta"] = {"seconds": round(time.time() - t0, 1), "source": str(Path(args.document).resolve())}
     text = json.dumps(data, indent=2, ensure_ascii=False)
